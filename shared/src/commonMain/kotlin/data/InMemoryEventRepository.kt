@@ -15,6 +15,13 @@ class InMemoryEventRepository : EventRepository {
         events.add(event)
     }
 
+    override fun updateEvent(event: Event) {
+        val index = events.indexOfFirst { it.id == event.id }
+        if (index >= 0) {
+            events[index] = event
+        }
+    }
+
     override fun deleteEvent(eventId: String) {
         events.removeAll { it.id == eventId }
     }

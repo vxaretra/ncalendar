@@ -20,6 +20,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation("com.kizitonwose.calendar:compose-multiplatform:2.10.1")
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0-0.6.x-compat")
+            implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
