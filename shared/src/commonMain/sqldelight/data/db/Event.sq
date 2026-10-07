@@ -1,0 +1,28 @@
+CREATE TABLE EventEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    date TEXT NOT NULL, -- ISO-8601 yyyy-MM-dd
+    start_time TEXT NOT NULL, -- ISO-8601 HH:mm
+    end_time TEXT NOT NULL,
+    description TEXT
+);
+
+selectAll:
+SELECT * FROM EventEntity;
+
+selectByDate:
+SELECT * FROM EventEntity
+WHERE date = ?
+ORDER BY start_time ASC;
+
+insert:
+INSERT INTO EventEntity (id, title, date, start_time, end_time, description)
+VALUES (?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE EventEntity
+SET title = ?, date = ?, start_time = ?, end_time = ?, description = ?
+WHERE id = ?;
+
+deleteById:
+DELETE FROM EventEntity WHERE id = ?;
