@@ -12,7 +12,8 @@ import kotlinx.datetime.LocalTime
 fun TimePickerDialog(
     initialTime: LocalTime,
     onConfirm: (LocalTime) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    title: String = "Select time",
 ) {
     val pickerState = rememberTimePickerState(
         initialHour = initialTime.hour,
@@ -22,7 +23,7 @@ fun TimePickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select time") },
+        title = { Text(title) },
         text = {
             Box(
                 modifier = Modifier.fillMaxWidth(),
