@@ -17,27 +17,37 @@ fun DayDetailSection(
     events: List<Event>,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+    ) {
         Text(
             text = formatDate(date),
             style = MaterialTheme.typography.headlineSmall
         )
         Spacer(Modifier.height(12.dp))
 
-        if (events.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No events for this day",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
-            }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(events, key = { it.id }) { event ->
-                    EventCard(event)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 720.dp)
+        ) {
+            if (events.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No events for this day",
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(events, key = { it.id }) { event ->
+                        EventCard(event)
+                    }
                 }
             }
         }
