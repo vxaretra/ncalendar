@@ -1,11 +1,10 @@
 package data
 
-import kotlinx.datetime.LocalDate
+import kotlinx.coroutines.flow.StateFlow
 
 interface EventRepository {
-    fun getAllEvents(): List<Event>
-    fun getEventsForDate(date: LocalDate): List<Event>
-    fun addEvent(event: Event)
-    fun updateEvent(event: Event)
-    fun deleteEvent(eventId: String)
+    val events: StateFlow<List<Event>>
+    suspend fun addEvent(event: Event)
+    suspend fun updateEvent(event: Event)
+    suspend fun deleteEvent(eventId: String)
 }

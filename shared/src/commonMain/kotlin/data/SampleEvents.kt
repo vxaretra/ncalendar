@@ -1,5 +1,6 @@
 package data
 
+import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -14,5 +15,7 @@ fun sampleEvents(): List<Event> = listOf(
 
 fun createSampleRepository(): EventRepository =
     InMemoryEventRepository().apply {
-        sampleEvents().forEach { addEvent(it) }
+        runBlocking {
+            sampleEvents().forEach { addEvent(it) }
+        }
     }

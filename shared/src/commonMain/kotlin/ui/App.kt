@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import data.Event
 import data.EventRepository
 import data.generateId
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import ui.form.EventFormDialog
@@ -22,13 +23,14 @@ fun App(repository: EventRepository) {
     }
     var selectedDate by remember { mutableStateOf(today) }
 
-    var events by remember(selectedDate) {
-        mutableStateOf(repository.getEventsForDate(selectedDate))
-    }
+    val allEvents by repository.events.collectAsState()
+    val eventsForSelectedDate = allEvents.filter { it.date == selectedDate }
 
     var showForm by remember { mutableStateOf(false) }
     var formState by remember { mutableStateOf(EventFormState()) }
     var pendingDelete by remember { mutableStateOf<Event?>(null) }
+
+    val scope = rememberCoroutineScope()
 
     fun openCreateForm() {
         formState = EventFormState()
@@ -64,7 +66,7 @@ fun App(repository: EventRepository) {
 
             DayDetailSection(
                 date = selectedDate,
-                events = events,
+                events = eventsForSelectedDate,
                 onAddEvent = { openCreateForm() },
                 onEditEvent = { openEditForm(it) },
                 onDeleteEvent = { pendingDelete = it },
@@ -89,12 +91,10 @@ fun App(repository: EventRepository) {
                             endTime = formState.endTime,
                             description = formState.description.ifBlank { null }
                         )
-                        if (formState.isEditing) repository.updateEvent(event)
-                        else repository.addEvent(event)
-
-                        // Refresh the list
-                        events = repository.getEventsForDate(selectedDate)
-
+                        scope.launch {
+                            if (formState.isEditing) repository.updateEvent(event)
+                            else repository.addEvent(event)
+                        }
                         showForm = false
                     } else {
                         formState = validated
@@ -111,8 +111,9 @@ fun App(repository: EventRepository) {
                 text = { Text("Delete \"${event.title}\"? This cannot be undone.") },
                 confirmButton = {
                     TextButton(onClick = {
-                        repository.deleteEvent(event.id)
-                        events = repository.getEventsForDate(selectedDate)
+                        scope.launch {
+                            repository.deleteEvent(event.id)
+                        }
                         pendingDelete = null
                     }) { Text("Delete") }
                 },

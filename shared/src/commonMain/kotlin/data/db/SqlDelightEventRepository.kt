@@ -1,7 +1,16 @@
 package data.db
 
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
 import data.Event
 import data.EventRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -11,13 +20,25 @@ class SqlDelightEventRepository(
 
     private val queries = database.eventQueries
 
-    override fun getAllEvents(): List<Event> =
+    // Temporary scope until Phase 8 replaces it with Koin
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    override val events: StateFlow<List<Event>> =
+        queries.selectAll()
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { entities ->
+                entities.map { it.toEvent() }
+                    .sortedBy { it.startTime }
+            }
+            .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    // One-shot read for bootstrap tasks such as seeding.
+    // The events flow above stays the single source of truth for the UI.
+    suspend fun getAllEventsOnce(): List<Event> =
         queries.selectAll().executeAsList().map { it.toEvent() }
 
-    override fun getEventsForDate(date: LocalDate): List<Event> =
-        queries.selectByDate(date.toString()).executeAsList().map { it.toEvent() }
-
-    override fun addEvent(event: Event) {
+    override suspend fun addEvent(event: Event) {
         queries.insert(
             id = event.id,
             title = event.title,
@@ -28,7 +49,7 @@ class SqlDelightEventRepository(
         )
     }
 
-    override fun updateEvent(event: Event) {
+    override suspend fun updateEvent(event: Event) {
         queries.update(
             title = event.title,
             date = event.date.toString(),
@@ -39,7 +60,7 @@ class SqlDelightEventRepository(
         )
     }
 
-    override fun deleteEvent(eventId: String) {
+    override suspend fun deleteEvent(eventId: String) {
         queries.deleteById(eventId)
     }
 }
