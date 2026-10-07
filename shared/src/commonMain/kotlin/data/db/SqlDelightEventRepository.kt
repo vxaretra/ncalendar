@@ -6,7 +6,6 @@ import data.Event
 import data.EventRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -15,13 +14,9 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
 class SqlDelightEventRepository(
-    private val database: AppDatabase
+    private val queries: EventQueries,
+    private val scope: CoroutineScope
 ) : EventRepository {
-
-    private val queries = database.eventQueries
-
-    // Temporary scope until Phase 8 replaces it with Koin
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val events: StateFlow<List<Event>> =
         queries.selectAll()

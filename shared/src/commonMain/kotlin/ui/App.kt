@@ -11,11 +11,14 @@ import data.generateId
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.koin.compose.koinInject
 import ui.form.EventFormDialog
 import ui.form.EventFormState
 
 @Composable
-fun App(repository: EventRepository) {
+fun App() {
+    val repository = koinInject<EventRepository>()
+
     val today = remember {
         kotlin.time.Clock.System.now()
             .toLocalDateTime(TimeZone.currentSystemDefault())

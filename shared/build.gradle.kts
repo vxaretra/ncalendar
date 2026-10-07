@@ -23,6 +23,8 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0-0.6.x-compat")
             implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
             implementation(libs.sqldelight.coroutines)
+            implementation(libs.koin.core)
+            implementation(libs.koin.compose)
         }
         jvmMain.dependencies {
             implementation(libs.sqldelight.jvm.driver)
