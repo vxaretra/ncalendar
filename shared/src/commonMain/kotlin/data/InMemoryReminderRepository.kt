@@ -1,5 +1,9 @@
 package data
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import reminder.normalizeReminderOffsets
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -18,8 +22,15 @@ class InMemoryReminderRepository(
 
     private data class Entry(val reminder: Reminder, val event: Event)
 
+    private val changeVersion = MutableStateFlow(0L)
+    override val changes: StateFlow<Long> = changeVersion.asStateFlow()
+
     private val entries = mutableListOf<Entry>()
     private var nextId = 1L
+
+    private fun signalChange() {
+        changeVersion.update { it + 1 }
+    }
 
     override suspend fun remindersForEvent(eventId: String): List<Reminder> =
         entries.filter { it.reminder.eventId == eventId }
@@ -45,6 +56,7 @@ class InMemoryReminderRepository(
         entries.replaceAll { entry ->
             if (entry.reminder.eventId == event.id) entry.copy(event = event) else entry
         }
+        signalChange()
     }
 
     override suspend fun dueReminders(): List<ReminderWithEvent> =
@@ -69,5 +81,6 @@ class InMemoryReminderRepository(
                 entry
             }
         }
+        signalChange()
     }
 }

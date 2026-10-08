@@ -3,6 +3,10 @@ package data
 import data.db.ReminderEntity
 import data.db.ReminderQueries
 import data.db.SelectDue
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
@@ -24,9 +28,7 @@ data class Reminder(
     val eventId: String,
     val offsetMinutes: Int,
     val firedAt: Instant?,
-) {
-    val fired: Boolean get() = firedAt != null
-}
+)
 
 /** A pending reminder joined with the event it belongs to. */
 data class ReminderWithEvent(
@@ -39,6 +41,15 @@ fun Event.startInstant(timeZone: TimeZone = TimeZone.currentSystemDefault()): In
     LocalDateTime(date, startTime).toInstant(timeZone)
 
 interface ReminderRepository {
+    /**
+     * Monotonic counter bumped whenever stored reminders change in a way that can move the
+     * next deadline (offsets synced, fired bookkeeping cleared). The scheduler watches it
+     * to wake from its deadline sleep as soon as the reminder set changes.
+     *
+     * Scheduler-internal [markFired] bookkeeping deliberately does not bump it.
+     */
+    val changes: StateFlow<Long>
+
     /** All reminders of an event, furthest-out first. */
     suspend fun remindersForEvent(eventId: String): List<Reminder>
 
@@ -65,6 +76,13 @@ class SqlDelightReminderRepository(
     private val reminderQueries: ReminderQueries,
     private val clock: () -> Instant = { Clock.System.now() },
 ) : ReminderRepository {
+
+    private val changeVersion = MutableStateFlow(0L)
+    override val changes: StateFlow<Long> = changeVersion.asStateFlow()
+
+    private fun signalChange() {
+        changeVersion.update { it + 1 }
+    }
 
     override suspend fun remindersForEvent(eventId: String): List<Reminder> =
         reminderQueries.selectForEvent(eventId)
@@ -94,6 +112,7 @@ class SqlDelightReminderRepository(
                     )
                 }
         }
+        signalChange()
     }
 
     override suspend fun dueReminders(): List<ReminderWithEvent> =
@@ -110,6 +129,7 @@ class SqlDelightReminderRepository(
 
     override suspend fun clearFiredForEvent(eventId: String) {
         reminderQueries.clearFiredForEvent(eventId)
+        signalChange()
     }
 }
 

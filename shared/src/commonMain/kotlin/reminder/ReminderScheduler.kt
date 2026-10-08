@@ -6,117 +6,108 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
- * Polls pending reminders on a fixed interval and hands due ones to the [Notifier].
+ * Delivers reminders by sleeping until the next due deadline instead of polling on a fixed
+ * interval, so a notification fires at its due moment rather than at the next tick.
+ *
+ * Each pass queries pending reminders, fires/silences those that are due, then sleeps until
+ * the earliest remaining deadline. The sleep ends early when [ReminderRepository.changes]
+ * signals that the reminder set moved (event saved, offsets edited, fired bookkeeping
+ * cleared). With no deadline known it rescans every [maxIdleSleep] as a safety net.
  *
  * The due instant is always recomputed as `event.start - reminder.offset`, so editing an
  * event's start time moves its reminders with it. Reminders whose due time fell outside
  * the grace window while the app was closed are marked fired without notifying, which
- * avoids a wall of stale notifications on startup. Fire-failure retries on the next tick.
+ * avoids a wall of stale notifications on startup. Fire-failure retries on the next pass.
  *
- * Every poll tick and every detected reminder is logged through [log] (stdout by default).
  */
 class ReminderScheduler(
     private val reminders: ReminderRepository,
     private val notifier: Notifier,
     private val clock: () -> Instant = { Clock.System.now() },
-    private val pollInterval: Duration = 10.seconds,
     private val graceWindow: Duration = 60.minutes,
     private val timeZone: () -> TimeZone = { TimeZone.currentSystemDefault() },
-    private val log: (String) -> Unit = { println(it) },
+    private val maxIdleSleep: Duration = 1.minutes,
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
 
-    /** Starts the poll loop; the first tick runs immediately. Safe to call twice. */
+    /** Starts the deadline loop; the first pass runs immediately. Safe to call twice. */
     fun start() {
         if (job?.isActive == true) return
-        log("[ReminderScheduler] Started - polling every $pollInterval (grace window $graceWindow)")
         job = scope.launch {
             while (isActive) {
-                pollOnce()
-                delay(pollInterval)
+                val zone = this@ReminderScheduler.timeZone()
+                // Captured before the pass: a change racing with it makes the wait below
+                // return immediately, so nothing is missed.
+                val version = reminders.changes.value
+                val now = clock()
+                val nextDeadline = pollOnce(now, zone)
+                val wait = if (nextDeadline == null) {
+                    maxIdleSleep
+                } else {
+                    (nextDeadline - now).coerceAtLeast(Duration.ZERO)
+                }
+
+                // Wake exactly at the deadline, or earlier when the reminder set changes.
+                withTimeoutOrNull(wait) {
+                    reminders.changes.dropWhile { it == version }.first()
+                }
             }
         }
     }
 
-    /** Cancels the poll loop. */
+    /** Cancels the deadline loop. */
     fun stop() {
         job?.cancel()
         job = null
-        log("[ReminderScheduler] Stopped")
     }
 
-    /** One poll pass. Public so callers can trigger a deterministic tick (tests, manual refresh). */
+    /**
+     * One pass. Fires or silences every due reminder and returns the next pending deadline
+     * strictly after [now], or `null` when nothing is scheduled ahead.
+     */
     suspend fun pollOnce(
         now: Instant = clock(),
         timeZone: TimeZone = this.timeZone(),
-    ) {
-        log("[ReminderScheduler] Poll tick at ${formatTimestamp(now, timeZone)}")
-
+    ): Instant? {
         val pending = reminders.dueReminders()
-        if (pending.isNotEmpty()) {
-            val summary = pending.joinToString { item ->
-                "#${item.reminder.id} \"${item.event.title}\" (${OffsetFormat.format(item.reminder.offsetMinutes)})"
-            }
-            log("[ReminderScheduler] Detected ${pending.size} pending reminder(s): $summary")
-        }
 
+        val upcoming = mutableListOf<Instant>()
         pending.forEach { item ->
             val dueAt = item.event.startInstant(timeZone) - item.reminder.offsetMinutes.minutes
             when {
-                // Still ahead of us; the next ticks will pick it up.
-                dueAt > now -> Unit
+                // Still ahead of us; the scheduler sleeps until this deadline.
+                dueAt > now -> upcoming += dueAt
 
                 // Too old to be useful: silence it without notifying.
                 dueAt < now - graceWindow -> {
-                    log(
-                        "[ReminderScheduler] Silencing stale reminder #${item.reminder.id} " +
-                            "\"${item.event.title}\" - due ${formatTimestamp(dueAt, timeZone)}, " +
-                            "outside the $graceWindow grace window"
-                    )
                     reminders.markFired(item.reminder.id, now)
                 }
 
                 else -> {
                     val notified = try {
-                        log(
-                            "[ReminderScheduler] Firing reminder #${item.reminder.id} " +
-                                "\"${item.event.title}\" (${OffsetFormat.format(item.reminder.offsetMinutes)}), " +
-                                "event starts ${formatTimestamp(item.event.startInstant(timeZone), timeZone)}"
-                        )
                         notifier.notify(item.reminder, item.event)
                         true
-                    } catch (error: Exception) {
-                        log(
-                            "[ReminderScheduler] Reminder #${item.reminder.id} could not be delivered " +
-                                "(${error.message}); will retry on the next tick"
-                        )
+                    } catch (_: Exception) {
                         false
                     }
                     if (notified) reminders.markFired(item.reminder.id, now)
                 }
             }
         }
-    }
-
-    /** Local `yyyy-MM-dd HH:mm` timestamp for logs. */
-    private fun formatTimestamp(instant: Instant, timeZone: TimeZone): String {
-        val dateTime = instant.toLocalDateTime(timeZone)
-        val hour = dateTime.hour.toString().padStart(2, '0')
-        val minute = dateTime.minute.toString().padStart(2, '0')
-        return "${dateTime.date} $hour:$minute"
+        return upcoming.minOrNull()
     }
 }

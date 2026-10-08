@@ -24,7 +24,6 @@ import ui.App
 import ui.shortcuts.AppShortcutHandler
 
 fun main() {
-    println("App Data Directory: ${platform.appDataDirectory().absolutePath}")
     startKoin {
         modules(appModule, desktopModule)
     }
