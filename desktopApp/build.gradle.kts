@@ -25,6 +25,7 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "com.example.ncalendar"
             packageVersion = "1.0.0"
+            modules("java.instrument", "java.sql", "jdk.unsupported")
         }
     }
 }
