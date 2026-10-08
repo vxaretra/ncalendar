@@ -1,5 +1,6 @@
 package com.example.ncalendar
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.DpSize
@@ -17,6 +18,8 @@ import di.appModule
 import di.desktopModule
 import org.koin.core.context.startKoin
 import org.koin.mp.KoinPlatform
+import reminder.ReminderActivationBus
+import reminder.ReminderScheduler
 import ui.App
 import ui.shortcuts.AppShortcutHandler
 
@@ -25,7 +28,13 @@ fun main() {
     startKoin {
         modules(appModule, desktopModule)
     }
-    seedIfEmpty(KoinPlatform.getKoin().get<SqlDelightEventRepository>())
+    val koin = KoinPlatform.getKoin()
+    seedIfEmpty(koin.get<SqlDelightEventRepository>())
+
+    // Reminder polling runs for the lifetime of the window.
+    val reminderScheduler = koin.get<ReminderScheduler>()
+    reminderScheduler.start()
+    val activationBus = koin.get<ReminderActivationBus>()
 
     // App-level shortcut state lives in commonMain; the window below is the desktop
     // layer that feeds it window-level key events.
@@ -46,6 +55,7 @@ fun main() {
 
         Window(
             onCloseRequest = {
+                reminderScheduler.stop()
                 saveWindowGeometry(windowState)
                 exitApplication()
             },
@@ -53,6 +63,16 @@ fun main() {
             title = "Calendar",
             onPreviewKeyEvent = { event -> shortcutHandler.handleKeyEvent(event) },
         ) {
+            // Reminder activation (tray click): bring the window back to the front.
+            // App.kt selects the event's day from the same bus.
+            LaunchedEffect(Unit) {
+                activationBus.activations.collect {
+                    windowState.isMinimized = false
+                    window.toFront()
+                    window.requestFocus()
+                }
+            }
+
             App(shortcutHandler = shortcutHandler)
         }
     }

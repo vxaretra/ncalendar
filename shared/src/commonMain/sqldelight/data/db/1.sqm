@@ -1,0 +1,9 @@
+-- Adds the reminder table to databases created before schema version 2.
+-- IF NOT EXISTS keeps the migration safe to replay on databases that already got
+-- the table through Schema.create (legacy databases report user_version = 0).
+CREATE TABLE IF NOT EXISTS ReminderEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    eventId TEXT NOT NULL REFERENCES EventEntity(id) ON DELETE CASCADE,
+    offsetMinutes INTEGER NOT NULL,
+    firedAt INTEGER
+);

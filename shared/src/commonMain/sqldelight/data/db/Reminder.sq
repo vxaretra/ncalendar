@@ -1,0 +1,45 @@
+CREATE TABLE ReminderEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    eventId TEXT NOT NULL REFERENCES EventEntity(id) ON DELETE CASCADE,
+    -- Minutes before the event start. Due time is (re)computed from the event on every poll.
+    offsetMinutes INTEGER NOT NULL,
+    -- Epoch millis of when this reminder was fired. NULL means still pending.
+    firedAt INTEGER
+);
+
+selectForEvent:
+SELECT * FROM ReminderEntity
+WHERE eventId = ?
+ORDER BY offsetMinutes DESC;
+
+selectDue:
+SELECT
+    ReminderEntity.id AS reminderId,
+    ReminderEntity.eventId AS eventId,
+    ReminderEntity.offsetMinutes AS offsetMinutes,
+    ReminderEntity.firedAt AS firedAt,
+    EventEntity.title AS title,
+    EventEntity.date AS date,
+    EventEntity.start_time AS startTime,
+    EventEntity.end_time AS endTime,
+    EventEntity.description AS description
+FROM ReminderEntity
+JOIN EventEntity ON EventEntity.id = ReminderEntity.eventId
+WHERE ReminderEntity.firedAt IS NULL;
+
+insert:
+INSERT INTO ReminderEntity (eventId, offsetMinutes, firedAt)
+VALUES (?, ?, ?);
+
+markFired:
+UPDATE ReminderEntity
+SET firedAt = ?
+WHERE id = ?;
+
+clearFiredForEvent:
+UPDATE ReminderEntity
+SET firedAt = NULL
+WHERE eventId = ?;
+
+deleteById:
+DELETE FROM ReminderEntity WHERE id = ?;
