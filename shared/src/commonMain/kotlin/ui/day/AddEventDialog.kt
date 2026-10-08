@@ -1,19 +1,18 @@
 package ui.day
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DatePicker
@@ -45,8 +44,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -71,7 +68,7 @@ import ui.form.TimePickerDialog
  * The dialog owns create and edit mode: the title follows [EventFormState.isEditing], and
  * the reminder list sits below the time fields and above the buttons.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEventDialog(
     state: EventFormState,
@@ -274,7 +271,6 @@ fun AddEventDialog(
  * The cap is refused here (the add control disables), duplicates are silently absorbed by
  * [addReminderOffset], and rows are always ordered furthest-out first.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReminderSection(
     offsets: List<Int>,
@@ -373,29 +369,24 @@ private fun DateField(
     onClick: () -> Unit,
 ) {
     val formattedDate = formatDate(date)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics { contentDescription = "Event date: $formattedDate" }
-            .clickable(
-                onClickLabel = "Change date",
-                onClick = onClick
-            )
-    ) {
-        OutlinedTextField(
-            value = formattedDate,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Date") },
-            enabled = false,
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
+    OutlinedTextField(
+        value = formattedDate,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text("Date") },
+        enabled = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+            disabledBorderColor = MaterialTheme.colorScheme.outline,
+            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        trailingIcon = {
+            IconButton(onClick = onClick) {
+                Icon(Icons.Default.DateRange, contentDescription = "Select date")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable
@@ -405,29 +396,24 @@ private fun TimeField(
     onClick: () -> Unit,
 ) {
     val formattedTime = formatTime(time)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics { contentDescription = "$label time: $formattedTime" }
-            .clickable(
-                onClickLabel = "Change $label time",
-                onClick = onClick
-            )
-    ) {
-        OutlinedTextField(
-            value = formattedTime,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            enabled = false,
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
+    OutlinedTextField(
+        value = formattedTime,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        enabled = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+            disabledBorderColor = MaterialTheme.colorScheme.outline,
+            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        trailingIcon = {
+            IconButton(onClick = onClick) {
+                Icon(Icons.Default.Timer, contentDescription = "Select time")
+            }
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 private const val MILLIS_PER_DAY = 86_400_000L
