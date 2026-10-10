@@ -60,7 +60,7 @@ fun main() {
             },
             state = windowState,
             title = "Calendar",
-            onPreviewKeyEvent = { event -> shortcutHandler.handleKeyEvent(event) },
+            onKeyEvent = { event -> shortcutHandler.handleKeyEvent(event) },
         ) {
             // Reminder activation (tray click): bring the window back to the front.
             // App.kt selects the event's day from the same bus.

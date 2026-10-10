@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -31,7 +32,7 @@ import ui.formatDate
 
 /**
  * Day detail panel: the selected day's header, its events (or an explanatory empty
- * state) and the floating add-event / jump-to-today actions.
+ * state) and the floating add-event / jump-to-today / AI chat actions.
  *
  * The "Today" action is disabled while [date] is already [today].
  *
@@ -44,6 +45,7 @@ fun DayDetailSection(
     events: List<Event>,
     onAddEvent: () -> Unit,
     onTodaySelected: () -> Unit,
+    onOpenChat: () -> Unit,
     onEditEvent: (Event) -> Unit,
     onDeleteEvent: (Event) -> Unit,
     modifier: Modifier = Modifier,
@@ -60,6 +62,13 @@ fun DayDetailSection(
         contentDescription = if (isToday) "Already showing today" else "Jump to today",
         enabled = !isToday,
         onClick = onTodaySelected,
+    )
+
+    val chatAction = FabAction(
+        id = "chat",
+        icon = Icons.Default.SmartToy,
+        contentDescription = "Open AI chat",
+        onClick = onOpenChat,
     )
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -97,7 +106,7 @@ fun DayDetailSection(
         }
 
         FabMenu(
-            actions = listOf(todayAction),
+            actions = listOf(todayAction, chatAction),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(if (compact) 12.dp else 16.dp),

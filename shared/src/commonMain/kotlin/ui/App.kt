@@ -29,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,6 +53,11 @@ import org.koin.compose.koinInject
 import reminder.InAppNotifier
 import reminder.InAppReminderNotification
 import reminder.ReminderActivationBus
+import ui.chat.ChatDialog
+import ui.chat.ChatMessage
+import ui.chat.EchoChatEngine
+import ui.chat.Role
+import ui.chat.newChatMessageId
 import ui.day.AddEventDialog
 import ui.day.DayDetailSection
 import ui.form.EventFormState
@@ -103,12 +109,47 @@ fun App(
     var pendingDelete by remember { mutableStateOf<Event?>(null) }
     val scope = rememberCoroutineScope()
 
+    // AI chat. Messages and the pending flag are hoisted here, and replies run in this
+    // scope, so closing the popup mid-reply does not lose the bot's answer.
+    var chatOpen by remember { mutableStateOf(false) }
+    val chatEngine = remember { EchoChatEngine() }
+    val chatMessages = remember { mutableStateListOf<ChatMessage>() }
+    var chatAwaitingReply by remember { mutableStateOf(false) }
+
+    fun sendChatMessage(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty() || chatAwaitingReply) return
+        chatMessages += ChatMessage(
+            id = newChatMessageId(),
+            role = Role.User,
+            text = trimmed,
+            timestamp = kotlin.time.Clock.System.now(),
+        )
+        chatAwaitingReply = true
+        val history = chatMessages.toList()
+        scope.launch {
+            val reply = chatEngine.reply(history)
+            chatMessages += ChatMessage(
+                id = newChatMessageId(),
+                role = Role.Bot,
+                text = reply,
+                timestamp = kotlin.time.Clock.System.now(),
+            )
+            chatAwaitingReply = false
+        }
+    }
+
     fun openCreateForm() {
+        // The chat popup is modal. Keyboard focus can still wander behind its scrim (this
+        // Compose version has no focus trap), so background actions must not open another
+        // surface while it is up.
+        if (chatOpen) return
         formState = EventFormState(date = selectedDate)
         showForm = true
     }
 
     fun openEditForm(event: Event) {
+        if (chatOpen) return
         formState = EventFormState(
             id = event.id,
             title = event.title,
@@ -141,9 +182,9 @@ fun App(
                 AppShortcut.AddEvent -> openCreateForm()
             }
         }
-        // While a dialog is open, shortcuts must not fire: typing, Enter and Escape
-        // belong to the dialog.
-        shortcutHandler.dialogsOpen = showForm || pendingDelete != null
+        // While any dialog is open - the event form, the delete confirmation or the AI
+        // chat popup - shortcuts must not fire: typing, Enter and Escape belong to it.
+        shortcutHandler.dialogsOpen = showForm || pendingDelete != null || chatOpen
     }
 
     AppTheme {
@@ -174,6 +215,7 @@ fun App(
                                 events = eventsForSelectedDate,
                                 onAddEvent = { openCreateForm() },
                                 onTodaySelected = { selectedDate = today },
+                                onOpenChat = { chatOpen = true },
                                 onEditEvent = { openEditForm(it) },
                                 onDeleteEvent = { pendingDelete = it },
                                 modifier = Modifier
@@ -205,6 +247,7 @@ fun App(
                                 events = eventsForSelectedDate,
                                 onAddEvent = { openCreateForm() },
                                 onTodaySelected = { selectedDate = today },
+                                onOpenChat = { chatOpen = true },
                                 onEditEvent = { openEditForm(it) },
                                 onDeleteEvent = { pendingDelete = it },
                                 modifier = Modifier
@@ -236,6 +279,18 @@ fun App(
                             )
                         }
                     }
+                }
+
+                // AI chat modal: rendered last inside this Box so it sits above the
+                // calendar and the FABs - its scrim and card occlude them for pointer
+                // input (hover included), so the FabMenu collapses behind it.
+                if (chatOpen) {
+                    ChatDialog(
+                        messages = chatMessages,
+                        awaitingReply = chatAwaitingReply,
+                        onSend = { text -> sendChatMessage(text) },
+                        onDismiss = { chatOpen = false },
+                    )
                 }
             }
         }

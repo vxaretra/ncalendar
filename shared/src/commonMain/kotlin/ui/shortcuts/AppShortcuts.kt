@@ -38,14 +38,17 @@ fun shortcutForKeyEvent(event: KeyEvent): AppShortcut? {
 }
 
 /**
- * Holds the app-level shortcut callbacks and forwards window-level key events to them.
+ * Holds the app-level shortcut callbacks and forwards key events to them.
  *
- * The keyboard logic lives here in commonMain; the desktop entry point is responsible
- * for handing window-level key events to [handleKeyEvent]. [App] keeps the callbacks in
- * sync with its composition state.
+ * The keyboard logic lives here in commonMain; the desktop entry point hands the window's
+ * post-content key events to [handleKeyEvent], so a shortcut only fires when no focused
+ * component consumed the key first (typing in a text field, activating a focused button,
+ * the chat input's Enter-to-send, ...). [App] keeps the callbacks in sync with its
+ * composition state.
  *
- * While a dialog is open, [dialogsOpen] is `true` and no shortcut fires: arrows keep
- * moving the caret in text fields and Enter/Escape stay with the dialog.
+ * While a dialog is open, [dialogsOpen] is `true` and no shortcut fires either: arrows
+ * keep moving the caret in text fields, and Enter/Escape stay with the dialog even when
+ * nothing inside it holds focus.
  */
 class AppShortcutHandler {
     /** Set by [App] whenever a dialog (add/edit event, delete confirmation) is visible. */
