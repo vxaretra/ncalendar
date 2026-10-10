@@ -21,7 +21,6 @@ import org.koin.mp.KoinPlatform
 import reminder.ReminderActivationBus
 import reminder.ReminderScheduler
 import ui.App
-import ui.shortcuts.AppShortcutHandler
 
 fun main() {
     startKoin {
@@ -34,10 +33,6 @@ fun main() {
     val reminderScheduler = koin.get<ReminderScheduler>()
     reminderScheduler.start()
     val activationBus = koin.get<ReminderActivationBus>()
-
-    // App-level shortcut state lives in commonMain; the window below is the desktop
-    // layer that feeds it window-level key events.
-    val shortcutHandler = AppShortcutHandler()
 
     application {
         val geometry = remember { loadWindowGeometry() }
@@ -60,7 +55,6 @@ fun main() {
             },
             state = windowState,
             title = "Calendar",
-            onKeyEvent = { event -> shortcutHandler.handleKeyEvent(event) },
         ) {
             // Reminder activation (tray click): bring the window back to the front.
             // App.kt selects the event's day from the same bus.
@@ -72,7 +66,7 @@ fun main() {
                 }
             }
 
-            App(shortcutHandler = shortcutHandler)
+            App()
         }
     }
 }

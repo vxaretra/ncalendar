@@ -26,7 +26,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -44,10 +43,7 @@ import data.EventRepository
 import data.ReminderRepository
 import data.generateId
 import kotlinx.coroutines.launch
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.minus
-import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.koinInject
 import reminder.InAppNotifier
@@ -63,14 +59,10 @@ import ui.day.DayDetailSection
 import ui.form.EventFormState
 import ui.layout.LayoutMode
 import ui.layout.layoutForWidth
-import ui.shortcuts.AppShortcut
-import ui.shortcuts.AppShortcutHandler
 import ui.theme.AppTheme
 
 @Composable
-fun App(
-    shortcutHandler: AppShortcutHandler = remember { AppShortcutHandler() },
-) {
+fun App() {
     val repository = koinInject<EventRepository>()
     val reminderRepository = koinInject<ReminderRepository>()
     val inAppNotifier = koinInject<InAppNotifier>()
@@ -166,25 +158,6 @@ fun App(
                 formState = formState.copy(reminderOffsets = offsets)
             }
         }
-    }
-
-    // Keyboard shortcuts: the decision logic lives in commonMain (ui.shortcuts), while
-    // the desktop entry point forwards window-level key events to this handler.
-    SideEffect {
-        shortcutHandler.onShortcut = { shortcut ->
-            when (shortcut) {
-                AppShortcut.PreviousDay ->
-                    selectedDate = selectedDate.minus(1, DateTimeUnit.DAY)
-
-                AppShortcut.NextDay ->
-                    selectedDate = selectedDate.plus(1, DateTimeUnit.DAY)
-
-                AppShortcut.AddEvent -> openCreateForm()
-            }
-        }
-        // While any dialog is open - the event form, the delete confirmation or the AI
-        // chat popup - shortcuts must not fire: typing, Enter and Escape belong to it.
-        shortcutHandler.dialogsOpen = showForm || pendingDelete != null || chatOpen
     }
 
     AppTheme {

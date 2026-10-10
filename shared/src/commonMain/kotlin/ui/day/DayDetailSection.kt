@@ -132,7 +132,7 @@ private fun EmptyDayState(modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Press Enter or use the + button to add an event.",
+            text = "Use the + button to add an event.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
             textAlign = TextAlign.Center
