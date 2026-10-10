@@ -170,8 +170,10 @@ fun App(
 
                             DayDetailSection(
                                 date = selectedDate,
+                                today = today,
                                 events = eventsForSelectedDate,
                                 onAddEvent = { openCreateForm() },
+                                onTodaySelected = { selectedDate = today },
                                 onEditEvent = { openEditForm(it) },
                                 onDeleteEvent = { pendingDelete = it },
                                 modifier = Modifier
@@ -199,8 +201,10 @@ fun App(
 
                             DayDetailSection(
                                 date = selectedDate,
+                                today = today,
                                 events = eventsForSelectedDate,
                                 onAddEvent = { openCreateForm() },
+                                onTodaySelected = { selectedDate = today },
                                 onEditEvent = { openEditForm(it) },
                                 onDeleteEvent = { pendingDelete = it },
                                 modifier = Modifier

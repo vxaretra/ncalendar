@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,19 +25,25 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import data.Event
 import kotlinx.datetime.LocalDate
+import ui.components.FabAction
+import ui.components.FabMenu
 import ui.formatDate
 
 /**
  * Day detail panel: the selected day's header, its events (or an explanatory empty
- * state) and the add-event action.
+ * state) and the floating add-event / jump-to-today actions.
+ *
+ * The "Today" action is disabled while [date] is already [today].
  *
  * [compact] is used by the stacked layout for tighter paddings.
  */
 @Composable
 fun DayDetailSection(
     date: LocalDate,
+    today: LocalDate,
     events: List<Event>,
     onAddEvent: () -> Unit,
+    onTodaySelected: () -> Unit,
     onEditEvent: (Event) -> Unit,
     onDeleteEvent: (Event) -> Unit,
     modifier: Modifier = Modifier,
@@ -44,6 +51,16 @@ fun DayDetailSection(
 ) {
     val horizontalPadding = if (compact) 16.dp else 24.dp
     val verticalPadding = if (compact) 12.dp else 16.dp
+
+    val isToday = date == today
+
+    val todayAction = FabAction(
+        id = "today",
+        icon = Icons.Default.Today,
+        contentDescription = if (isToday) "Already showing today" else "Jump to today",
+        enabled = !isToday,
+        onClick = onTodaySelected,
+    )
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -79,13 +96,15 @@ fun DayDetailSection(
             }
         }
 
-        FloatingActionButton(
-            onClick = onAddEvent,
+        FabMenu(
+            actions = listOf(todayAction),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(if (compact) 12.dp else 16.dp)
+                .padding(if (compact) 12.dp else 16.dp),
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Add event")
+            FloatingActionButton(onClick = onAddEvent) {
+                Icon(Icons.Default.Add, contentDescription = "Add event")
+            }
         }
     }
 }
