@@ -1,22 +1,18 @@
 package ui.chat
 
-import kotlinx.coroutines.delay
-
-/** Generates the assistant's reply for a conversation. */
-interface ChatEngine {
-    /** Returns the bot reply for [history]; the last message is the one being answered. */
-    suspend fun reply(history: List<ChatMessage>): String
-}
+import kotlinx.coroutines.flow.Flow
 
 /**
- * Placeholder engine that echoes the most recent message after a short delay, mimicking a
- * "typing" pause. Kept behind [ChatEngine] so a real backend can replace it later.
+ * Generates the assistant's reply for a conversation.
+ *
+ * Implementations stream progress as [ChatEvent]s: text segments, tool activity, and
+ * failures. The flow is expected to end with [ChatEvent.Completed] (after
+ * [ChatEvent.Error] when the turn failed).
  */
-class EchoChatEngine(
-    private val replyDelayMillis: Long = 500L,
-) : ChatEngine {
-    override suspend fun reply(history: List<ChatMessage>): String {
-        delay(replyDelayMillis)
-        return history.last().text
-    }
+interface ChatEngine {
+    /**
+     * Starts a reply turn for [userMessage] in the conversation identified by [sessionId].
+     * Implementations may keep conversation history keyed by [sessionId].
+     */
+    fun replyStream(userMessage: String, sessionId: String): Flow<ChatEvent>
 }

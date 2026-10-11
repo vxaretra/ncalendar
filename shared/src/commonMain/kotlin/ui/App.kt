@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import assistant.CalendarConfirmationHandler
 import data.Event
 import data.EventRepository
 import data.ReminderRepository
@@ -50,8 +51,9 @@ import reminder.InAppNotifier
 import reminder.InAppReminderNotification
 import reminder.ReminderActivationBus
 import ui.chat.ChatDialog
+import ui.chat.ChatEngine
+import ui.chat.ChatEvent
 import ui.chat.ChatMessage
-import ui.chat.EchoChatEngine
 import ui.chat.Role
 import ui.chat.newChatMessageId
 import ui.day.AddEventDialog
@@ -67,6 +69,8 @@ fun App() {
     val reminderRepository = koinInject<ReminderRepository>()
     val inAppNotifier = koinInject<InAppNotifier>()
     val activationBus = koinInject<ReminderActivationBus>()
+    val chatEngine = koinInject<ChatEngine>()
+    val confirmationHandler = koinInject<CalendarConfirmationHandler>()
 
     val today = remember {
         kotlin.time.Clock.System.now()
@@ -87,6 +91,9 @@ fun App() {
     // In-app fallback banners, shown when the platform has no usable system tray.
     val reminderBanners by inAppNotifier.notifications.collectAsState()
 
+    // A write action the assistant is waiting for the user to approve or deny.
+    val pendingConfirmation by confirmationHandler.pending.collectAsState()
+
     val allEvents by repository.events.collectAsState()
 
     // Dates that have events, used for the calendar dots. Re-read from the repository
@@ -101,12 +108,16 @@ fun App() {
     var pendingDelete by remember { mutableStateOf<Event?>(null) }
     val scope = rememberCoroutineScope()
 
-    // AI chat. Messages and the pending flag are hoisted here, and replies run in this
-    // scope, so closing the popup mid-reply does not lose the bot's answer.
+    // AI chat. Messages and the pending flag are hoisted here, and the reply stream runs
+    // in this scope, so closing the popup mid-reply does not lose the bot's answer.
     var chatOpen by remember { mutableStateOf(false) }
-    val chatEngine = remember { EchoChatEngine() }
     val chatMessages = remember { mutableStateListOf<ChatMessage>() }
     var chatAwaitingReply by remember { mutableStateOf(false) }
+
+    fun updateChatMessage(id: String, transform: (ChatMessage) -> ChatMessage) {
+        val index = chatMessages.indexOfFirst { it.id == id }
+        if (index >= 0) chatMessages[index] = transform(chatMessages[index])
+    }
 
     fun sendChatMessage(text: String) {
         val trimmed = text.trim()
@@ -118,15 +129,61 @@ fun App() {
             timestamp = kotlin.time.Clock.System.now(),
         )
         chatAwaitingReply = true
-        val history = chatMessages.toList()
         scope.launch {
-            val reply = chatEngine.reply(history)
-            chatMessages += ChatMessage(
-                id = newChatMessageId(),
-                role = Role.Bot,
-                text = reply,
-                timestamp = kotlin.time.Clock.System.now(),
-            )
+            // Text segments of this turn accumulate in one reply bubble, created lazily
+            // with the first segment so a turn that only calls tools shows no empty bubble.
+            var replyId: String? = null
+            chatEngine.replyStream(trimmed, sessionId = "default").collect { event ->
+                when (event) {
+                    is ChatEvent.TextChunk -> {
+                        val existing = replyId
+                        if (existing == null) {
+                            val id = newChatMessageId()
+                            replyId = id
+                            chatMessages += ChatMessage(
+                                id = id,
+                                role = Role.Bot,
+                                text = event.text.trim(),
+                                timestamp = kotlin.time.Clock.System.now(),
+                            )
+                        } else {
+                            updateChatMessage(existing) { message ->
+                                message.copy(text = message.text + "\n\n" + event.text.trim())
+                            }
+                        }
+                    }
+
+                    is ChatEvent.ToolCallStarted -> chatMessages += ChatMessage(
+                        id = newChatMessageId(),
+                        role = Role.Bot,
+                        text = "🔧 ${event.toolName}…",
+                        timestamp = kotlin.time.Clock.System.now(),
+                    )
+
+                    // The tool bubble and the assistant's text carry the story; the raw
+                    // result would only add noise to the transcript.
+                    is ChatEvent.ToolCallCompleted -> Unit
+
+                    is ChatEvent.Error -> {
+                        val note = "⚠️ ${event.message}"
+                        val existing = replyId
+                        if (existing == null) {
+                            chatMessages += ChatMessage(
+                                id = newChatMessageId(),
+                                role = Role.Bot,
+                                text = note,
+                                timestamp = kotlin.time.Clock.System.now(),
+                            )
+                        } else {
+                            updateChatMessage(existing) { message ->
+                                message.copy(text = message.text + "\n\n" + note)
+                            }
+                        }
+                    }
+
+                    ChatEvent.Completed -> Unit
+                }
+            }
             chatAwaitingReply = false
         }
     }
@@ -323,6 +380,22 @@ fun App() {
                 },
                 dismissButton = {
                     TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                }
+            )
+        }
+
+        // The AI assistant wants to write to the calendar: nothing is saved until the
+        // user approves here. Dismissing the dialog (click outside / Escape) denies.
+        pendingConfirmation?.let { pending ->
+            AlertDialog(
+                onDismissRequest = { confirmationHandler.deny() },
+                title = { Text("Confirm calendar change") },
+                text = { Text(pending.description) },
+                confirmButton = {
+                    TextButton(onClick = { confirmationHandler.approve() }) { Text("Approve") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmationHandler.deny() }) { Text("Deny") }
                 }
             )
         }

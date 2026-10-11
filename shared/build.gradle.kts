@@ -25,6 +25,10 @@ kotlin {
             implementation(libs.sqldelight.coroutines)
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
+            // AI assistant: Koog agent framework + OpenRouter LLM client. The umbrella
+            // artifact also brings the HTTP stack (ktor + Apache5 engine) it needs.
+            implementation(libs.koog.agents)
+            implementation(libs.koog.openrouter.client)
         }
         jvmMain.dependencies {
             implementation(libs.sqldelight.jvm.driver)

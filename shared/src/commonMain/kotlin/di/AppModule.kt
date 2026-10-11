@@ -1,5 +1,8 @@
 package di
 
+import assistant.CalendarConfirmationHandler
+import assistant.KoogChatEngine
+import assistant.loadOpenRouterApiKey
 import data.EventRepository
 import data.InMemoryReminderRepository
 import data.ReminderRepository
@@ -15,6 +18,7 @@ import org.koin.dsl.module
 import reminder.InAppNotifier
 import reminder.ReminderActivationBus
 import reminder.ReminderScheduler
+import ui.chat.ChatEngine
 
 val appModule = module {
     single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
@@ -31,4 +35,16 @@ val appModule = module {
     single { InAppNotifier() }
     single { ReminderActivationBus() }
     single { ReminderScheduler(reminders = get(), notifier = get()) }
+
+    // AI assistant. The API key is resolved lazily from the platform configuration and
+    // may be null - [KoogChatEngine] turns a missing key into a chat error instead of
+    // failing app startup.
+    single { CalendarConfirmationHandler() }
+    single<ChatEngine> {
+        KoogChatEngine(
+            apiKey = loadOpenRouterApiKey(),
+            eventRepository = get(),
+            confirmationHandler = get(),
+        )
+    }
 }
