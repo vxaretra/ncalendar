@@ -97,7 +97,7 @@ fun DayDetailSection(
                             EventCard(
                                 event = event,
                                 onClick = { onEditEvent(event) },
-                                onLongClick = { onDeleteEvent(event) }
+                                onDelete = { onDeleteEvent(event) }
                             )
                         }
                     }
