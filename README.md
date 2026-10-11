@@ -9,6 +9,12 @@ A desktop calendar built with Kotlin and Compose Multiplatform — with a built-
 - Background scheduler fires reminders on time while the app is open
 - AI agents that powers lists, creates, updates, and deletes events through natural language
 
+
+
+https://github.com/user-attachments/assets/24a3f711-2e37-4496-87e5-ea1784cd474c
+
+
+
 ## Tech stack
 
 - Kotlin 2.4 
